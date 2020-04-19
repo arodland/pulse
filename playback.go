@@ -242,6 +242,12 @@ func PlaybackLowLatency(sink *Sink) PlaybackOption {
 	}
 }
 
+func PlaybackPrebufferLength(samples uint32) PlaybackOption {
+	return func(p *PlaybackStream) {
+		p.createRequest.BufferPrebufferLength = samples
+	}
+}
+
 // PlaybackMediaName sets the streams media name.
 // This will e.g. be displayed by a volume control application to identity the stream.
 func PlaybackMediaName(name string) PlaybackOption {
