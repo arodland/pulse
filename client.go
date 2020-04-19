@@ -84,7 +84,10 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 				stream, ok := c.playback[msg.StreamIndex]
 				c.mu.Unlock()
 				if ok {
-					c.c.Send(msg.StreamIndex, stream.buffer(int(msg.Length)))
+					b := stream.buffer(int(msg.Length))
+					if len(b) > 0 {
+						c.c.Send(msg.StreamIndex, b)
+					}
 				}
 			case *proto.DataPacket:
 				c.mu.Lock()

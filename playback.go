@@ -12,10 +12,10 @@ type PlaybackStream struct {
 	buf            []byte
 	bytesPerSample int
 
-	cb8  func([]byte)
-	cb16 func([]int16)
-	cb32 func([]int32)
-	cbf  func([]float32)
+	cb8  func([]byte) int
+	cb16 func([]int16) int
+	cb32 func([]int32) int
+	cbf  func([]float32) int
 
 	createRequest proto.CreatePlaybackStream
 	createReply   proto.CreatePlaybackStreamReply
@@ -42,19 +42,19 @@ func (c *Client) NewPlayback(cb interface{}, opts ...PlaybackOption) (*PlaybackS
 	}
 
 	switch cb := cb.(type) {
-	case func([]byte):
+	case func([]byte) int:
 		p.cb8 = cb
 		p.createRequest.Format = proto.FormatUint8
 		p.bytesPerSample = 1
-	case func([]int16):
+	case func([]int16) int:
 		p.cb16 = cb
 		p.createRequest.Format = formatI16
 		p.bytesPerSample = 2
-	case func([]int32):
+	case func([]int32) int:
 		p.cb32 = cb
 		p.createRequest.Format = formatI32
 		p.bytesPerSample = 4
-	case func([]float32):
+	case func([]float32) int:
 		p.cbf = cb
 		p.createRequest.Format = formatF32
 		p.bytesPerSample = 4
@@ -88,13 +88,13 @@ func (p *PlaybackStream) buffer(n int) []byte {
 	}
 	switch {
 	case p.cb8 != nil:
-		p.cb8(p.buf[:n])
+		n = p.cb8(p.buf[:n])
 	case p.cb16 != nil:
-		p.cb16(int16Slice(p.buf[:n]))
+		n = 2 * p.cb16(int16Slice(p.buf[:n]))
 	case p.cb32 != nil:
-		p.cb32(int32Slice(p.buf[:n]))
+		n = 4 * p.cb32(int32Slice(p.buf[:n]))
 	case p.cbf != nil:
-		p.cbf(float32Slice(p.buf[:n]))
+		n = 4 * p.cbf(float32Slice(p.buf[:n]))
 	}
 	return p.buf[:n]
 }
@@ -102,7 +102,10 @@ func (p *PlaybackStream) buffer(n int) []byte {
 // Start starts playing audio.
 func (p *PlaybackStream) Start() {
 	p.c.c.Request(&proto.FlushPlaybackStream{StreamIndex: p.index}, nil)
-	p.c.c.Send(p.index, p.buffer(int(p.createReply.BufferTargetLength)))
+	b := p.buffer(int(p.createReply.BufferTargetLength))
+	if len(b) > 0 {
+		p.c.c.Send(p.index, b)
+	}
 	p.c.c.Request(&proto.CorkPlaybackStream{StreamIndex: p.index, Corked: false}, nil)
 	p.running = true
 }
